@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Solar System</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600&display=swap');
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: #00000a;
+    overflow: hidden;
+    height: 100vh; width: 100vw;
+    font-family: 'Rajdhani', sans-serif;
+    cursor: grab;
+    user-select: none;
+  }
+  body.dragging { cursor: grabbing; }
+
+  /* Milky Way canvas — fixed behind everything */
+  #mw-canvas {
+    position: fixed; inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0;
+    transition: opacity 0.6s ease;
+  }
+
+  /* Regular star field */
+  #stars { position:fixed; inset:0; pointer-events:none; z-index:1; }
+  .star {
+    position:absolute; background:white; border-radius:50%;
+    animation: twinkle var(--dur) ease-in-out infinite alternate;
+  }
+  @keyframes twinkle { from{opacity:.15} to{opacity:1} }
+
+  /* Viewport */
+  #viewport {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform-origin: 0 0;
+    will-change: transform;
+    z-index: 2;
+  }
+
+  .solar-system {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    width: 0; height: 0;
+  }
+
+  /* Sun */
+  .sun {
+    position:absolute;
+    width:80px; height:80px;
+    border-radius:50%;
+    transform: translate(-50%,-50%);
+    background: radial-gradient(circle at 38% 35%,
+      #fff8c0 0%, #ffe44a 18%, #ffb300 40%,
+      #ff7200 65%, #cc3d00 85%, #8b1a00 100%);
+    box-shadow:
+      0 0 24px 10px rgba(255,200,0,.65),
+      0 0 70px 26px rgba(255,120,0,.4),
+      0 0 140px 55px rgba(255,60,0,.2);
+    z-index:10;
+    animation: sunPulse 4s ease-in-out infinite alternate;
+  }
+  @keyframes sunPulse {
+    from { box-shadow: 0 0 24px 10px rgba(255,200,0,.65), 0 0 70px 26px rgba(255,120,0,.4), 0 0 140px 55px rgba(255,60,0,.2); }
+    to   { box-shadow: 0 0 38px 16px rgba(255,225,0,.85), 0 0 100px 40px rgba(255,150,0,.5), 0 0 190px 80px rgba(255,80,0,.25); }
+  }
+
+  .orbit {
+    position:absolute; border-radius:50%;
+    border:1px solid rgba(255,255,255,0.08);
+    transform: translate(-50%,-50%);
+    display:flex; align-items:flex-start; justify-content:center;
+    animation: orbitSpin linear infinite;
+    transform-origin: 50% 50%;
+  }
+  @keyframes orbitSpin {
+    from { transform: translate(-50%,-50%) rotate(0deg); }
+    to   { transform: translate(-50%,-50%) rotate(360deg); }
+  }
+
+  .planet-wrapper {
+    position:relative; top:0;
+    display:flex; flex-direction:column; align-items:center;
+    animation: counterSpin linear infinite;
+  }
+  @keyframes counterSpin {
+    from { transform: translateY(-50%) rotate(0deg); }
+    to   { transform: translateY(-50%) rotate(-360deg); }
+  }
+
+  .planet { border-radius:50%; position:relative; overflow:hidden; }
+  .planet::before {
+    content:''; position:absolute; inset:0; border-radius:50%;
+    background: radial-gradient(circle at 32% 28%, rgba(255,255,255,.22) 0%, rgba(255,255,255,.06) 35%, transparent 65%);
+    z-index:3; pointer-events:none;
+  }
+  .planet::after {
+    content:''; position:absolute; inset:0; border-radius:50%;
+    background: radial-gradient(circle at 68% 70%, rgba(0,0,0,.55) 0%, rgba(0,0,0,.25) 45%, transparent 70%);
+    z-index:4; pointer-events:none;
+  }
+  .planet-tex { position:absolute; inset:0; border-radius:50%; z-index:1; }
+
+  .label {
+    font-family:'Orbitron', monospace; font-size:9px;
+    color:rgba(255,255,255,.7); margin-top:5px;
+    letter-spacing:.1em; white-space:nowrap;
+    text-shadow:0 0 6px rgba(255,255,255,.45);
+  }
+
+  /* ── MERCURY ── */
+  .orbit-mercury { width:130px; height:130px; animation-duration:3s; }
+  .orbit-mercury .planet-wrapper { animation-duration:3s; }
+  .planet-mercury { width:10px; height:10px; background: radial-gradient(circle at 42% 38%, #7a8aad 0%, #5c6b8a 25%, #4a5570 45%, #6b7590 60%, #3d4860 80%, #2a3348 100%); }
+  .planet-mercury .planet-tex { background: radial-gradient(ellipse 30% 20% at 25% 35%, rgba(180,160,90,.55) 0%, transparent 70%), radial-gradient(ellipse 20% 15% at 70% 60%, rgba(160,140,80,.4) 0%, transparent 65%), radial-gradient(ellipse 15% 12% at 55% 25%, rgba(200,180,100,.35) 0%, transparent 60%), radial-gradient(ellipse 25% 18% at 80% 30%, rgba(120,110,70,.3) 0%, transparent 65%), radial-gradient(ellipse 12% 10% at 40% 75%, rgba(170,150,85,.4) 0%, transparent 60%); }
+
+  /* ── VENUS ── */
+  .orbit-venus { width:188px; height:188px; animation-duration:7s; }
+  .orbit-venus .planet-wrapper { animation-duration:7s; }
+  .planet-venus { width:17px; height:17px; background: radial-gradient(circle at 40% 36%, #f0a830 0%, #d07818 30%, #b85c10 55%, #8c3c08 80%, #5c2004 100%); }
+  .planet-venus .planet-tex { background: repeating-linear-gradient(-30deg, rgba(255,180,60,0) 0px, rgba(220,140,40,.25) 4px, rgba(180,100,20,.15) 8px, rgba(255,160,50,.2) 14px, rgba(200,120,30,.1) 20px, rgba(255,180,60,0) 26px), radial-gradient(ellipse 60% 30% at 50% 40%, rgba(255,200,80,.2) 0%, transparent 70%); }
+
+  /* ── EARTH ── */
+  .orbit-earth { width:252px; height:252px; animation-duration:12s; }
+  .orbit-earth .planet-wrapper { animation-duration:12s; }
+  .planet-earth { width:19px; height:19px; background: radial-gradient(circle at 40% 36%, #5bb8f5 0%, #1e6bbf 25%, #1a4d9a 45%, #0d2d6b 70%, #081a4a 100%); box-shadow:0 0 8px rgba(80,160,255,.5); }
+  .planet-earth .planet-tex { background: radial-gradient(ellipse 28% 22% at 38% 42%, rgba(50,120,40,.85) 0%, transparent 75%), radial-gradient(ellipse 20% 30% at 65% 55%, rgba(60,110,35,.7) 0%, transparent 70%), radial-gradient(ellipse 18% 12% at 20% 60%, rgba(40,100,30,.6) 0%, transparent 65%), radial-gradient(ellipse 15% 18% at 72% 38%, rgba(160,100,40,.5) 0%, transparent 65%), radial-gradient(ellipse 12% 10% at 28% 28%, rgba(140,90,35,.45) 0%, transparent 60%), radial-gradient(ellipse 35% 8% at 50% 22%, rgba(255,255,255,.35) 0%, transparent 70%), radial-gradient(ellipse 25% 6% at 30% 68%, rgba(255,255,255,.28) 0%, transparent 65%), radial-gradient(ellipse 20% 5% at 75% 78%, rgba(255,255,255,.22) 0%, transparent 60%); }
+
+  /* ── MARS ── */
+  .orbit-mars { width:324px; height:324px; animation-duration:22s; }
+  .orbit-mars .planet-wrapper { animation-duration:22s; }
+  .planet-mars { width:15px; height:15px; background: radial-gradient(circle at 38% 34%, #d4613a 0%, #b84020 30%, #9a2e12 55%, #6e1c08 78%, #3e0c02 100%); }
+  .planet-mars .planet-tex { background: radial-gradient(ellipse 35% 25% at 30% 45%, rgba(180,80,40,.5) 0%, transparent 70%), radial-gradient(ellipse 25% 20% at 65% 55%, rgba(100,40,20,.55) 0%, transparent 65%), radial-gradient(ellipse 20% 15% at 50% 25%, rgba(200,110,60,.4) 0%, transparent 65%), radial-gradient(ellipse 30% 12% at 70% 30%, rgba(80,30,15,.45) 0%, transparent 60%), radial-gradient(ellipse 30% 15% at 50% 8%, rgba(255,240,230,.5) 0%, transparent 70%); }
+
+  /* ── JUPITER ── */
+  .orbit-jupiter { width:430px; height:430px; animation-duration:60s; }
+  .orbit-jupiter .planet-wrapper { animation-duration:60s; }
+  .planet-jupiter { width:40px; height:40px; background: repeating-linear-gradient(180deg, #c8a46a 0%,#e8c88a 6%,#b07838 10%,#d4a060 16%,#c89658 20%,#ead4a0 26%,#b08048 30%,#d8b070 36%,#c8a060 40%,#e8cc88 46%,#b07840 50%,#d0a058 56%,#c8a46a 60%,#e0bc80 66%,#b88050 70%,#d8a868 76%,#c8a46a 80%,#dcc080 86%,#b09060 90%,#c8a46a 100%); border-radius:50%; box-shadow:0 0 10px rgba(200,160,80,.35); }
+  .planet-jupiter .planet-tex { background: radial-gradient(ellipse 18% 10% at 68% 58%, rgba(180,60,30,.75) 0%, rgba(150,40,20,.4) 55%, transparent 80%), radial-gradient(ellipse 8% 5% at 68% 58%, rgba(220,100,60,.6) 0%, transparent 60%), radial-gradient(ellipse 40% 5% at 30% 35%, rgba(100,60,20,.2) 0%, transparent 70%), radial-gradient(ellipse 30% 4% at 60% 72%, rgba(80,40,10,.18) 0%, transparent 65%); }
+
+  /* ── SATURN ── */
+  .orbit-saturn { width:540px; height:540px; animation-duration:145s; }
+  .orbit-saturn .planet-wrapper { animation-duration:145s; }
+  .planet-saturn { width:30px; height:30px; background: repeating-linear-gradient(180deg, #e8d898 0%,#f5ebb8 8%,#d4c070 14%,#e8d890 20%,#c8b060 26%,#ddd090 32%,#e8d898 38%,#f0e8b0 44%,#d0bc78 50%,#e4d498 56%,#e8d898 64%,#dcc880 72%,#e8d898 80%,#f0e4a8 90%,#e8d898 100%); border-radius:50%; }
+  .saturn-ring-wrap { position:absolute; top:50%; left:50%; pointer-events:none; z-index:2; }
+  .saturn-ring { position:absolute; border-radius:50%; transform:translate(-50%,-50%) rotateX(72deg); }
+  .saturn-ring-outer { width:68px; height:68px; border:4px solid rgba(200,175,100,.28); }
+  .saturn-ring-mid   { width:58px; height:58px; border:5px solid rgba(210,185,110,.48); }
+  .saturn-ring-inner { width:49px; height:49px; border:3.5px solid rgba(195,168,90,.35); }
+
+  /* ── URANUS ── */
+  .orbit-uranus { width:630px; height:630px; animation-duration:420s; }
+  .orbit-uranus .planet-wrapper { animation-duration:420s; }
+  .planet-uranus { width:22px; height:22px; background: radial-gradient(circle at 38% 34%, #a8f0ff 0%, #48d0f0 25%, #18a8d8 50%, #0878a8 72%, #044e78 100%); }
+  .planet-uranus .planet-tex { background: radial-gradient(ellipse 70% 20% at 50% 45%, rgba(180,240,255,.2) 0%, transparent 70%), radial-gradient(ellipse 50% 15% at 50% 30%, rgba(200,248,255,.15) 0%, transparent 65%); }
+  .uranus-ring { position:absolute; top:50%; left:50%; width:46px; height:46px; border:2px solid rgba(160,230,255,.38); border-radius:50%; transform:translate(-50%,-50%) rotateX(15deg) rotateZ(10deg); pointer-events:none; z-index:2; }
+
+  /* ── NEPTUNE ── */
+  .orbit-neptune { width:718px; height:718px; animation-duration:820s; }
+  .orbit-neptune .planet-wrapper { animation-duration:820s; }
+  .planet-neptune { width:20px; height:20px; background: radial-gradient(circle at 38% 34%, #8098e8 0%, #4060d0 22%, #2040b0 45%, #102090 68%, #080e60 100%); box-shadow:0 0 8px rgba(80,110,255,.5); }
+  .planet-neptune .planet-tex { background: radial-gradient(ellipse 45% 12% at 50% 38%, rgba(160,190,255,.25) 0%, transparent 70%), radial-gradient(ellipse 30% 8% at 40% 60%, rgba(120,160,240,.2) 0%, transparent 65%), radial-gradient(ellipse 18% 12% at 55% 52%, rgba(5,10,60,.6) 0%, transparent 70%); }
+
+  /* ── UI ── */
+  .title {
+    position:fixed; top:2vh; left:50%; transform:translateX(-50%);
+    font-family:'Orbitron', monospace;
+    font-size:clamp(12px,2.5vmin,22px); font-weight:900; color:#fff;
+    letter-spacing:.3em; text-transform:uppercase;
+    text-shadow:0 0 20px rgba(255,200,100,.6);
+    z-index:20; white-space:nowrap; pointer-events:none;
+    transition: opacity 0.6s ease;
+  }
+  .subtitle {
+    position:fixed; top:6.5vh; left:50%; transform:translateX(-50%);
+    font-family:'Rajdhani', sans-serif;
+    font-size:clamp(9px,1.4vmin,13px); color:rgba(255,255,255,.4);
+    letter-spacing:.5em; text-transform:uppercase;
+    z-index:20; white-space:nowrap; pointer-events:none;
+    transition: opacity 0.6s ease;
+  }
+
+  /* Milky Way label */
+  #mw-label {
+    position:fixed; top:50%; left:50%;
+    transform: translate(-50%,-50%);
+    font-family:'Orbitron', monospace;
+    font-size:clamp(18px,4vw,52px); font-weight:900;
+    color:rgba(255,255,255,0);
+    letter-spacing:.4em; text-transform:uppercase;
+    text-shadow: 0 0 40px rgba(180,160,255,.0), 0 0 80px rgba(120,100,220,.0);
+    z-index:20; white-space:nowrap; pointer-events:none;
+    transition: color 0.8s ease, text-shadow 0.8s ease;
+    text-align:center;
+  }
+  #mw-label.show {
+    color: rgba(255,255,255,.55);
+    text-shadow: 0 0 40px rgba(180,160,255,.5), 0 0 80px rgba(120,100,220,.3);
+  }
+  #mw-sublabel {
+    position:fixed; top:calc(50% + clamp(25px,5vw,65px)); left:50%;
+    transform: translateX(-50%);
+    font-family:'Rajdhani', sans-serif;
+    font-size:clamp(9px,1.4vmin,14px);
+    color:rgba(255,255,255,0);
+    letter-spacing:.6em; text-transform:uppercase;
+    z-index:20; white-space:nowrap; pointer-events:none;
+    transition: color 0.8s ease 0.2s;
+  }
+  #mw-sublabel.show { color: rgba(255,255,255,.3); }
+
+  #zoom-controls {
+    position:fixed; bottom:28px; right:28px;
+    display:flex; flex-direction:column; gap:8px;
+    z-index:30;
+  }
+  .zoom-btn {
+    width:40px; height:40px; border-radius:50%;
+    background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.25);
+    color:white; font-size:20px; line-height:1;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; font-family:'Orbitron', monospace;
+    transition: background .2s, border-color .2s;
+    backdrop-filter: blur(6px);
+  }
+  .zoom-btn:hover { background:rgba(255,255,255,.22); border-color:rgba(255,255,255,.5); }
+  #reset-btn {
+    width:40px; height:40px; border-radius:50%;
+    background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.18);
+    color:rgba(255,255,255,.6); font-size:14px; line-height:1;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; font-family:'Orbitron', monospace;
+    transition: background .2s; backdrop-filter: blur(6px);
+  }
+  #reset-btn:hover { background:rgba(255,255,255,.18); color:white; }
+
+  #zoom-label {
+    position:fixed; bottom:28px; left:28px;
+    font-family:'Orbitron', monospace;
+    font-size:11px; color:rgba(255,255,255,.35);
+    letter-spacing:.15em; z-index:30; pointer-events:none;
+  }
+  #hint {
+    position:fixed; bottom:28px; left:50%; transform:translateX(-50%);
+    font-family:'Rajdhani', sans-serif;
+    font-size:11px; color:rgba(255,255,255,.25);
+    letter-spacing:.3em; text-transform:uppercase;
+    z-index:20; pointer-events:none;
+    transition: opacity 1s ease;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="mw-canvas"></canvas>
+<div id="stars"></div>
+
+<div class="title" id="main-title">Solar System</div>
+<div class="subtitle" id="main-sub">8 Planets · Orbital Simulation</div>
+<div id="mw-label">Milky Way</div>
+<div id="mw-sublabel">Our Galaxy · 100,000 Light Years Wide</div>
+
+<div id="viewport">
+  <div class="solar-system">
+    <div class="sun"></div>
+
+    <div class="orbit orbit-mercury">
+      <div class="planet-wrapper">
+        <div class="planet planet-mercury"><div class="planet-tex"></div></div>
+        <div class="label">MERCURY</div>
+      </div>
+    </div>
+    <div class="orbit orbit-venus">
+      <div class="planet-wrapper">
+        <div class="planet planet-venus"><div class="planet-tex"></div></div>
+        <div class="label">VENUS</div>
+      </div>
+    </div>
+    <div class="orbit orbit-earth">
+      <div class="planet-wrapper">
+        <div class="planet planet-earth"><div class="planet-tex"></div></div>
+        <div class="label">EARTH</div>
+      </div>
+    </div>
+    <div class="orbit orbit-mars">
+      <div class="planet-wrapper">
+        <div class="planet planet-mars"><div class="planet-tex"></div></div>
+        <div class="label">MARS</div>
+      </div>
+    </div>
+    <div class="orbit orbit-jupiter">
+      <div class="planet-wrapper">
+        <div class="planet planet-jupiter"><div class="planet-tex"></div></div>
+        <div class="label">JUPITER</div>
+      </div>
+    </div>
+    <div class="orbit orbit-saturn">
+      <div class="planet-wrapper" style="position:relative;">
+        <div style="position:relative;display:inline-block;">
+          <div class="planet planet-saturn"></div>
+          <div class="saturn-ring-wrap">
+            <div class="saturn-ring saturn-ring-outer"></div>
+            <div class="saturn-ring saturn-ring-mid"></div>
+            <div class="saturn-ring saturn-ring-inner"></div>
+          </div>
+        </div>
+        <div class="label">SATURN</div>
+      </div>
+    </div>
+    <div class="orbit orbit-uranus">
+      <div class="planet-wrapper" style="position:relative;">
+        <div style="position:relative;display:inline-block;">
+          <div class="planet planet-uranus"><div class="planet-tex"></div></div>
+          <div class="uranus-ring"></div>
+        </div>
+        <div class="label">URANUS</div>
+      </div>
+    </div>
+    <div class="orbit orbit-neptune">
+      <div class="planet-wrapper">
+        <div class="planet planet-neptune"><div class="planet-tex"></div></div>
+        <div class="label">NEPTUNE</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="zoom-controls">
+  <button class="zoom-btn" id="zoom-in">+</button>
+  <button class="zoom-btn" id="zoom-out">−</button>
+  <button id="reset-btn" title="Reset view">⟳</button>
+</div>
+<div id="zoom-label">100%</div>
+<div id="hint">Scroll · Pinch · Drag to explore</div>
+
+<script>
+// ── Stars ──
+const starsEl = document.getElementById('stars');
+for (let i = 0; i < 320; i++) {
+  const s = document.createElement('div');
+  s.className = 'star';
+  const size = Math.random() * 2 + 0.4;
+  s.style.cssText = `width:${size}px;height:${size}px;top:${Math.random()*100}%;left:${Math.random()*100}%;--dur:${(Math.random()*3+1).toFixed(1)}s;animation-delay:${(Math.random()*4).toFixed(1)}s;opacity:${(Math.random()*0.5+0.15).toFixed(2)};`;
+  starsEl.appendChild(s);
+}
+
+// ── Random orbit start angles ──
+document.querySelectorAll('.orbit').forEach(orbit => {
+  const dur = parseFloat(getComputedStyle(orbit).animationDuration);
+  orbit.style.animationDelay = `-${(Math.random() * dur).toFixed(2)}s`;
+  orbit.querySelector('.planet-wrapper').style.animationDelay = orbit.style.animationDelay;
+});
+
+// ══════════════════════════════════════════════
+// MILKY WAY CANVAS
+// ══════════════════════════════════════════════
+const mwCanvas = document.getElementById('mw-canvas');
+const ctx = mwCanvas.getContext('2d');
+
+function resizeMW() {
+  mwCanvas.width = window.innerWidth;
+  mwCanvas.height = window.innerHeight;
+  drawMilkyWay();
+}
+
+function drawMilkyWay() {
+  const W = mwCanvas.width, H = mwCanvas.height;
+  const cx = W / 2, cy = H / 2;
+  ctx.clearRect(0, 0, W, H);
+
+  // ── Deep space background gradient ──
+  const bg = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(W, H) * 0.7);
+  bg.addColorStop(0,   'rgba(15,10,35,1)');
+  bg.addColorStop(0.4, 'rgba(8,5,20,1)');
+  bg.addColorStop(1,   'rgba(0,0,8,1)');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  // ── Milky Way band (tilted elliptical glow) ──
+  const angle = -0.35; // tilt
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(angle);
+
+  // Outer diffuse haze
+  const outerGlow = ctx.createLinearGradient(0, -H * 0.55, 0, H * 0.55);
+  outerGlow.addColorStop(0,    'rgba(0,0,0,0)');
+  outerGlow.addColorStop(0.3,  'rgba(80,60,120,0)');
+  outerGlow.addColorStop(0.42, 'rgba(120,100,180,0.06)');
+  outerGlow.addColorStop(0.48, 'rgba(160,140,220,0.14)');
+  outerGlow.addColorStop(0.5,  'rgba(200,180,255,0.22)');
+  outerGlow.addColorStop(0.52, 'rgba(160,140,220,0.14)');
+  outerGlow.addColorStop(0.58, 'rgba(120,100,180,0.06)');
+  outerGlow.addColorStop(0.7,  'rgba(80,60,120,0)');
+  outerGlow.addColorStop(1,    'rgba(0,0,0,0)');
+  ctx.fillStyle = outerGlow;
+  ctx.fillRect(-W * 1.2, -H * 0.55, W * 2.4, H * 1.1);
+
+  // Core band - brighter
+  const coreGlow = ctx.createLinearGradient(0, -H * 0.25, 0, H * 0.25);
+  coreGlow.addColorStop(0,    'rgba(0,0,0,0)');
+  coreGlow.addColorStop(0.35, 'rgba(140,120,200,0.05)');
+  coreGlow.addColorStop(0.44, 'rgba(180,160,240,0.18)');
+  coreGlow.addColorStop(0.5,  'rgba(220,200,255,0.35)');
+  coreGlow.addColorStop(0.56, 'rgba(180,160,240,0.18)');
+  coreGlow.addColorStop(0.65, 'rgba(140,120,200,0.05)');
+  coreGlow.addColorStop(1,    'rgba(0,0,0,0)');
+  ctx.fillStyle = coreGlow;
+  ctx.fillRect(-W * 1.2, -H * 0.25, W * 2.4, H * 0.5);
+
+  // Galactic centre bulge
+  const bulge = ctx.createRadialGradient(W * 0.08, 0, 0, W * 0.08, 0, W * 0.22);
+  bulge.addColorStop(0,   'rgba(255,240,200,0.55)');
+  bulge.addColorStop(0.2, 'rgba(220,190,160,0.35)');
+  bulge.addColorStop(0.5, 'rgba(160,130,110,0.12)');
+  bulge.addColorStop(1,   'rgba(0,0,0,0)');
+  ctx.fillStyle = bulge;
+  ctx.beginPath();
+  ctx.ellipse(W * 0.08, 0, W * 0.22, H * 0.1, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Warm orange-gold inner core
+  const innerCore = ctx.createRadialGradient(W * 0.08, 0, 0, W * 0.08, 0, W * 0.1);
+  innerCore.addColorStop(0,   'rgba(255,220,140,0.7)');
+  innerCore.addColorStop(0.3, 'rgba(240,190,100,0.4)');
+  innerCore.addColorStop(0.7, 'rgba(200,150,80,0.15)');
+  innerCore.addColorStop(1,   'rgba(0,0,0,0)');
+  ctx.fillStyle = innerCore;
+  ctx.beginPath();
+  ctx.ellipse(W * 0.08, 0, W * 0.1, H * 0.045, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Dust lane (dark rift through the band)
+  const dustLane = ctx.createLinearGradient(0, -H * 0.06, 0, H * 0.06);
+  dustLane.addColorStop(0,    'rgba(0,0,0,0)');
+  dustLane.addColorStop(0.3,  'rgba(0,0,0,0.04)');
+  dustLane.addColorStop(0.5,  'rgba(0,0,0,0.12)');
+  dustLane.addColorStop(0.7,  'rgba(0,0,0,0.04)');
+  dustLane.addColorStop(1,    'rgba(0,0,0,0)');
+  ctx.fillStyle = dustLane;
+  ctx.fillRect(-W * 1.2, -H * 0.06, W * 2.4, H * 0.12);
+
+  ctx.restore();
+
+  // ── Milky Way star field — dense in band ──
+  const rng = seededRandom(42);
+
+  // Background galaxy stars (faint, spread wide)
+  for (let i = 0; i < 3000; i++) {
+    const x = rng() * W;
+    const y = rng() * H;
+    const size = rng() * 1.2 + 0.2;
+    const brightness = rng() * 0.4 + 0.05;
+    // Warm/cool tint
+    const tint = rng();
+    let r = 255, g = 255, b = 255;
+    if (tint < 0.3) { r = 200; g = 210; b = 255; }       // blue-white
+    else if (tint < 0.5) { r = 255; g = 240; b = 200; }  // warm yellow
+    else if (tint < 0.6) { r = 255; g = 200; b = 160; }  // orange
+    ctx.beginPath();
+    ctx.arc(x, y, size, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(${r},${g},${b},${brightness})`;
+    ctx.fill();
+  }
+
+  // Dense band stars
+  for (let i = 0; i < 5000; i++) {
+    // Place along the tilted band
+    const along = (rng() - 0.5) * W * 2.5;
+    const across = (rng() - 0.5) * H * 0.38 * Math.pow(rng(), 0.6);
+    const bx = cx + along * Math.cos(angle) - across * Math.sin(angle);
+    const by = cy + along * Math.sin(angle) + across * Math.cos(angle);
+    if (bx < 0 || bx > W || by < 0 || by > H) continue;
+    const size = rng() * 1.5 + 0.15;
+    const brightness = rng() * 0.6 + 0.1;
+    const tint = rng();
+    let r = 255, g = 255, b = 255;
+    if (tint < 0.25) { r = 180; g = 200; b = 255; }
+    else if (tint < 0.45) { r = 255; g = 245; b = 210; }
+    else if (tint < 0.55) { r = 255; g = 210; b = 170; }
+    ctx.beginPath();
+    ctx.arc(bx, by, size, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(${r},${g},${b},${brightness})`;
+    ctx.fill();
+  }
+
+  // Bright foreground stars with glow
+  for (let i = 0; i < 120; i++) {
+    const x = rng() * W, y = rng() * H;
+    const size = rng() * 2 + 1;
+    const tint = rng();
+    let r = 255, g = 255, b = 255;
+    if (tint < 0.2) { r = 160; g = 180; b = 255; }
+    else if (tint < 0.35) { r = 255; g = 240; b = 180; }
+    const grd = ctx.createRadialGradient(x, y, 0, x, y, size * 3.5);
+    grd.addColorStop(0,   `rgba(${r},${g},${b},0.9)`);
+    grd.addColorStop(0.3, `rgba(${r},${g},${b},0.3)`);
+    grd.addColorStop(1,   'rgba(0,0,0,0)');
+    ctx.fillStyle = grd;
+    ctx.beginPath();
+    ctx.arc(x, y, size * 3.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Our solar system marker dot
+  const ssX = cx - W * 0.15, ssY = cy + H * 0.07;
+  ctx.save();
+  ctx.translate(ssX, ssY);
+  ctx.rotate(angle);
+  ctx.restore();
+
+  // Draw solar system position indicator
+  const ssMarkerX = cx + (W * 0.25) * Math.cos(angle + Math.PI * 0.15);
+  const ssMarkerY = cy + (W * 0.25) * Math.sin(angle + Math.PI * 0.15);
+
+  const markerGlow = ctx.createRadialGradient(ssMarkerX, ssMarkerY, 0, ssMarkerX, ssMarkerY, 8);
+  markerGlow.addColorStop(0,   'rgba(255,220,100,0.9)');
+  markerGlow.addColorStop(0.4, 'rgba(255,180,60,0.4)');
+  markerGlow.addColorStop(1,   'rgba(0,0,0,0)');
+  ctx.fillStyle = markerGlow;
+  ctx.beginPath();
+  ctx.arc(ssMarkerX, ssMarkerY, 8, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = 'rgba(255,230,120,0.95)';
+  ctx.beginPath();
+  ctx.arc(ssMarkerX, ssMarkerY, 2, 0, Math.PI * 2);
+  ctx.fill();
+
+  // "You are here" label
+  ctx.font = '11px Orbitron, monospace';
+  ctx.fillStyle = 'rgba(255,220,100,0.65)';
+  ctx.letterSpacing = '0.1em';
+  ctx.fillText('YOU ARE HERE', ssMarkerX + 12, ssMarkerY + 4);
+
+  // Arrow line
+  ctx.strokeStyle = 'rgba(255,220,100,0.35)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([3, 4]);
+  ctx.beginPath();
+  ctx.moveTo(ssMarkerX + 2, ssMarkerY - 2);
+  ctx.lineTo(ssMarkerX + 10, ssMarkerY - 8);
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+// Seeded random for consistent star patterns
+function seededRandom(seed) {
+  let s = seed;
+  return function() {
+    s = (s * 1664525 + 1013904223) & 0xffffffff;
+    return (s >>> 0) / 0xffffffff;
+  };
+}
+
+resizeMW();
+window.addEventListener('resize', resizeMW);
+
+// ══════════════════════════════════════════════
+// PAN & ZOOM
+// ══════════════════════════════════════════════
+const vp = document.getElementById('viewport');
+const mwEl = document.getElementById('mw-canvas');
+const mainTitle = document.getElementById('main-title');
+const mainSub = document.getElementById('main-sub');
+const mwLabel = document.getElementById('mw-label');
+const mwSublabel = document.getElementById('mw-sublabel');
+
+const MIN_SCALE = 0.05;
+const MAX_SCALE = 8;
+const DEFAULT_SCALE = 0.72;
+// Threshold: below this scale, Milky Way fades in
+const MW_THRESHOLD = 0.22;
+const MW_FULL = 0.10;
+
+let scale = DEFAULT_SCALE;
+let tx = 0, ty = 0;
+
+function applyTransform(smooth) {
+  vp.style.transition = smooth ? 'transform 0.35s cubic-bezier(0.25,0.1,0.25,1)' : 'none';
+  vp.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`;
+  document.getElementById('zoom-label').textContent = Math.round(scale * 100) + '%';
+  updateMilkyWay();
+}
+
+function updateMilkyWay() {
+  // Fade Milky Way in as we zoom out below threshold
+  let mwOpacity = 0;
+  if (scale < MW_THRESHOLD) {
+    mwOpacity = Math.min(1, (MW_THRESHOLD - scale) / (MW_THRESHOLD - MW_FULL));
+  }
+  mwEl.style.opacity = mwOpacity;
+
+  // Fade solar system title out, MW label in
+  const titleOpacity = Math.max(0, Math.min(1, (scale - MW_THRESHOLD) / (DEFAULT_SCALE - MW_THRESHOLD)));
+  mainTitle.style.opacity = titleOpacity;
+  mainSub.style.opacity = titleOpacity;
+
+  if (mwOpacity > 0.4) {
+    mwLabel.classList.add('show');
+    mwSublabel.classList.add('show');
+  } else {
+    mwLabel.classList.remove('show');
+    mwSublabel.classList.remove('show');
+  }
+}
+
+function resetView(smooth) {
+  scale = DEFAULT_SCALE;
+  tx = 0; ty = 0;
+  applyTransform(smooth);
+}
+resetView(false);
+
+// Mouse wheel
+window.addEventListener('wheel', e => {
+  e.preventDefault();
+  const mouseX = e.clientX - window.innerWidth / 2;
+  const mouseY = e.clientY - window.innerHeight / 2;
+  const delta = e.deltaY < 0 ? 1.12 : 1 / 1.12;
+  const newScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale * delta));
+  const ratio = newScale / scale;
+  tx = mouseX + (tx - mouseX) * ratio;
+  ty = mouseY + (ty - mouseY) * ratio;
+  scale = newScale;
+  applyTransform(false);
+}, { passive: false });
+
+// Mouse drag
+let dragging = false, dragStartX, dragStartY, txStart, tyStart;
+window.addEventListener('mousedown', e => {
+  dragging = true; dragStartX = e.clientX; dragStartY = e.clientY;
+  txStart = tx; tyStart = ty;
+  document.body.classList.add('dragging');
+});
+window.addEventListener('mousemove', e => {
+  if (!dragging) return;
+  tx = txStart + (e.clientX - dragStartX);
+  ty = tyStart + (e.clientY - dragStartY);
+  applyTransform(false);
+});
+window.addEventListener('mouseup', () => { dragging = false; document.body.classList.remove('dragging'); });
+
+// Touch
+let touches = [], lastPinchDist = null, lastTouchMid = null;
+window.addEventListener('touchstart', e => {
+  e.preventDefault();
+  touches = Array.from(e.touches);
+  if (touches.length === 1) { dragStartX = touches[0].clientX; dragStartY = touches[0].clientY; txStart = tx; tyStart = ty; }
+  if (touches.length === 2) { lastPinchDist = pinchDist(touches); lastTouchMid = touchMid(touches); }
+}, { passive: false });
+window.addEventListener('touchmove', e => {
+  e.preventDefault();
+  touches = Array.from(e.touches);
+  if (touches.length === 1) {
+    tx = txStart + (touches[0].clientX - dragStartX);
+    ty = tyStart + (touches[0].clientY - dragStartY);
+    applyTransform(false);
+  }
+  if (touches.length === 2) {
+    const dist = pinchDist(touches); const mid = touchMid(touches);
+    if (lastPinchDist) {
+      const delta = dist / lastPinchDist;
+      const newScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale * delta));
+      const ratio = newScale / scale;
+      const midX = mid.x - window.innerWidth / 2, midY = mid.y - window.innerHeight / 2;
+      tx = midX + (tx - midX) * ratio; ty = midY + (ty - midY) * ratio;
+      scale = newScale;
+    }
+    if (lastTouchMid) { tx += mid.x - lastTouchMid.x; ty += mid.y - lastTouchMid.y; }
+    lastPinchDist = dist; lastTouchMid = mid;
+    applyTransform(false);
+  }
+}, { passive: false });
+window.addEventListener('touchend', e => {
+  touches = Array.from(e.touches); lastPinchDist = null; lastTouchMid = null;
+  if (touches.length === 1) { dragStartX = touches[0].clientX; dragStartY = touches[0].clientY; txStart = tx; tyStart = ty; }
+});
+
+function pinchDist(t) { return Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY); }
+function touchMid(t) { return { x:(t[0].clientX+t[1].clientX)/2, y:(t[0].clientY+t[1].clientY)/2 }; }
+
+// Buttons
+document.getElementById('zoom-in').addEventListener('click', () => {
+  const newScale = Math.min(MAX_SCALE, scale * 1.35);
+  const ratio = newScale / scale;
+  tx *= ratio; ty *= ratio; scale = newScale; applyTransform(true);
+});
+document.getElementById('zoom-out').addEventListener('click', () => {
+  const newScale = Math.max(MIN_SCALE, scale / 1.35);
+  const ratio = newScale / scale;
+  tx *= ratio; ty *= ratio; scale = newScale; applyTransform(true);
+});
+document.getElementById('reset-btn').addEventListener('click', () => resetView(true));
+
+setTimeout(() => { document.getElementById('hint').style.opacity = '0'; }, 4000);
+</script>
+</body>
+</html>
